@@ -17,11 +17,16 @@ never scores. See [architecture.md](architecture.md#scoring) for the full formul
 **Advisory** means static analysis cannot confirm it — the report says so, and you should
 read the evidence before acting.
 
+**73 rule IDs** in this build — 36 engine rules + 13 structural + 6 permission + 7 LLM
++ 9 scan notes + 2 gate messages. Of these, **62 score** and 11 never do (dimension 0).
+These counts are generated from the same tables the drift check reads, so if a count
+anywhere else in this repository disagrees with this line, that other count is stale.
+
 ## Contents
 
 - [1 — Prompt injection](#1--prompt-injection) (9)
 - [2 — Excessive permissions](#2--excessive-permissions) (5)
-- [3 — Data exfiltration](#3--data-exfiltration) (8)
+- [3 — Data exfiltration](#3--data-exfiltration) (9)
 - [4 — Code execution](#4--code-execution) (12)
 - [5 — Supply chain](#5--supply-chain) (7)
 - [6 — Obfuscation](#6--obfuscation) (8)
@@ -65,6 +70,7 @@ read the evidence before acting.
 | `EXFIL-002` | low · advisory | Exfiltration surface split across files | One file in the artifact reads credentials, a different one makes outbound requests. Much weaker than the same-file chain — unrelated files legitimately do each half — so it is advisory, and only raised when no same-file chain was found. |
 | `EXFIL-003` | high | Exfiltration chain with encoding | All three legs in one file — credential read, encode, egress. Raised INSTEAD of EXFIL-001 (one fact reported twice reads as two problems), together with OBF-004. Same loopback downgrade as EXFIL-001; OBF-004 is not raised when nothing left the machine. |
 | `EXFIL-004` | medium | Whole environment dumped | Enumerates every environment variable — the agent's own API keys and tokens included — and prints, serialises or writes them out. A skill that needs a setting reads it by name; taking all of them is collection. |
+| `EXFIL-005` | high | Instruction file imports a credential into the agent's context | An @import in CLAUDE.md (or another instruction file) resolves to a credential: a file inside .ssh/.aws/.gnupg/…, or a file named .env, id_rsa, credentials, *.key, *.p12 … Claude Code expands imports into context at launch. The file is NOT read by the scan (a COV-000 says so); this scores the import itself. High for names that hold only secrets; medium for .pem / .npmrc / .pypirc and paths through .config, which often hold configuration. `.env.example` and friends are not credentials and are scanned normally. |
 | `LLM-006` | medium · advisory | Cross-file capability chain | Different files of one artifact collect and send between them. |
 | `MCP-004` | medium | Tool description directs data to an outside address | The description tells the model to send something to a URL. Where a tool's data goes is decided by the server behind it, not by a sentence the model is asked to obey; a description that names a destination is routing data past the tool. |
 | `PERM-001` | high | Inline plaintext secret in a permission entry | An allow entry embeds a credential value directly; remove it and use a secret manager. |
